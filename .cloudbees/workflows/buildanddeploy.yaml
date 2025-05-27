@@ -69,7 +69,6 @@ jobs:
           build-args: BUILDKIT_CONTEXT_KEEP_GIT_DIR=1,BUILDKIT_INLINE_CACHE=1
     needs:
       - static-analysis
-      - sca-scan
       - sast-scan
   static-analysis:
     outputs:
@@ -143,24 +142,6 @@ jobs:
           orgname: ${{ secrets.SNYK_ORGNAME }}
           token: ${{ secrets.SNYK_TOKEN }}
           language: LANGUAGE_JAVA
-    needs:
-      - evidence-collection
-  sca-scan:
-    steps:
-      - name: Checkout
-        uses: cloudbees-io/checkout@v1
-      - uses: cloudbees-io/snyk-sca-scan-dependency@v1
-        name: Scan with Snyk SCA
-        kind: scan
-        with:
-          orgname: ${{ secrets.SNYK_ORGNAME }}
-          token: ${{ secrets.SNYK_TOKEN }}
-          language: LANGUAGE_JAVA
-      - name: Publish evidence
-        uses: cloudbees-io/publish-evidence-item@v1
-        with:
-          content: "${{vars.PETCLINIC_SCA_SCAN_RESULTS}} "
-          format: MARKDOWN
     needs:
       - evidence-collection
   exit_gate:
