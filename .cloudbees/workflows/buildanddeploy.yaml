@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 env:
   APP_NAME: spring-petclinic
-  NAMESPACE: cwroble #This will be changed to the SE's personal namespace
+  NAMESPACE: cwroble
 jobs:
   evidence-collection:
     outputs:
@@ -49,35 +49,6 @@ jobs:
             - **Commit ID:** "${{ steps.commitinfo.outputs.commit_id }}"
             - **Commit Message:** "${{ steps.commitinfo.outputs.commit_msg }}" 
           format: MARKDOWN
-  unit-tests:
-    outputs:
-      unitTestResults: ${{ steps.RunUnitTest.outputs.mvn_test_stdio1 }}
-    steps:
-      - name: Checkout
-        uses: cloudbees-io/checkout@v1
-      - name: RunUnitTest
-        id: RunUnitTest
-        uses: docker://maven:3-eclipse-temurin-17
-        run: |
-          mvn test > "$CLOUDBEES_OUTPUTS/mvn_test_stdio"
-          cat "$CLOUDBEES_OUTPUTS/mvn_test_stdio" | grep "Tests run:" | tail -1 > "$CLOUDBEES_OUTPUTS/mvn_test_stdio1"
-      - uses: cloudbees-io/publish-test-results@v1
-        name: test
-        kind: test
-        with:
-          test-type: JUnit
-          folder-name: /cloudbees/workspace/target/surefire-reports/*.xml
-      - name: Publish evidence
-        uses: cloudbees-io/publish-evidence-item@v1
-        with:
-          content: |-
-            ## Unit Test Results
-            - **Unit Test Results:** "${{ steps.RunUnitTest.outputs.mvn_test_stdio1 }}"
-            ## Code Coverage Report
-            ${{vars.PETCLINIC_UT_RESULTS}} 
-          format: MARKDOWN
-    needs:
-      - evidence-collection
   package:
     steps:
       - name: Checkout
@@ -96,18 +67,9 @@ jobs:
           destination: ${{ secrets.DOCKERHUB_STAGE_USERNAME }}/spring-petclinic:${{ cloudbees.scm.sha }},${{ secrets.DOCKERHUB_STAGE_USERNAME }}/springpet-clinic:latest
           tar-path: container-image.tar
           build-args: BUILDKIT_CONTEXT_KEEP_GIT_DIR=1,BUILDKIT_INLINE_CACHE=1
-      # - uses: calculi-corp/assets-plugin-chain-utils/upload-binary@v1
-      #   name: Upload binary from container build
-      #   continue-on-error: true
-      #   id: upload-binary
-      #   with:
-      #     file-path: container-image.tar
-      #     file-type: BINARY_CONTAINER
-      #     debug: "true"
     needs:
       - static-analysis
       - sca-scan
-      - unit-tests
       - sast-scan
   static-analysis:
     outputs:
@@ -197,13 +159,12 @@ jobs:
       - name: Publish evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
-          content: |-
-            ${{vars.PETCLINIC_SCA_SCAN_RESULTS}} 
-          format: MARKDOWN                  
-    needs: 
+          content: "${{vars.PETCLINIC_SCA_SCAN_RESULTS}} "
+          format: MARKDOWN
+    needs:
       - evidence-collection
   exit_gate:
-    environment: cwroble_DEV  #This will be changed to SE's created DEV environment ex: tjohns_DEV
+    environment: cwroble_DEV
     steps:
       - uses: cloudbees-io/publish-evidence-item@v1
         name: Publish Results
@@ -216,7 +177,7 @@ jobs:
         name: Manual Approval
         run: |
           echo "Manual approval required before proceeding to deployment."
-    needs: 
+    needs:
       - deploy_dev
   smokeTest_dev:
     steps:
@@ -231,10 +192,10 @@ jobs:
         with:
           content: "${{vars.PETCLINIC_SMOKETEST_DEV_RESULTS}} "
           format: MARKDOWN
-    needs: 
+    needs:
       - deploy_dev
   deploy_dev:
-    environment: cwroble_DEV #This will be changed to SE's created DEV environment ex: tjohns_DEV
+    environment: cwroble_DEV
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
@@ -267,7 +228,7 @@ jobs:
     needs:
       - container-scan
   deploy_qa:
-    environment: cwroble_QA #This will be changed to SE's created QA environment ex: tjohns_QA
+    environment: cwroble_QA
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
@@ -297,7 +258,7 @@ jobs:
 
             Running spring-petclinic:${{ cloudbees.scm.sha }}
           format: MARKDOWN
-    needs: 
+    needs:
       - exit_gate
   smokeTest_qa:
     steps:
@@ -312,10 +273,10 @@ jobs:
         with:
           content: "${{vars.PETCLINIC_SMOKETEST_QA_RESULTS}} "
           format: MARKDOWN
-    needs: 
+    needs:
       - deploy_qa
   deploy_prod:
-    environment: cwroble_PROD #This will be changed to SE's created PROD environment ex: tjohns_PROD
+    environment: cwroble_PROD
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
@@ -345,7 +306,7 @@ jobs:
 
             Running spring-petclinic:${{ cloudbees.scm.sha }}
           format: MARKDOWN
-    needs: 
+    needs:
       - deploy_qa
   smokeTest_prod:
     steps:
@@ -360,5 +321,5 @@ jobs:
         with:
           content: "${{vars.PETCLINIC_SMOKETEST_PROD_RESULTS}} "
           format: MARKDOWN
-    needs: 
+    needs:
       - deploy_prod
